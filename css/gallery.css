@@ -165,6 +165,27 @@
   text-overflow: ellipsis;
 }
 
+/* Mindlings NFT names - Orange/Yellow color for Modern theme */
+.nft-card-name.mindling-nft-name {
+  color: #ffc107 !important; /* Yellow/Orange color (warning color) */
+}
+
+.gallery-view-6col .nft-card-name.mindling-nft-name {
+  color: #ffc107 !important; /* Yellow/Orange color */
+}
+
+.gallery-view-12col .nft-card-name.mindling-nft-name {
+  color: #ffc107 !important; /* Yellow/Orange color */
+}
+
+.gallery-view-list .nft-card-name.mindling-nft-name {
+  color: #ffc107 !important; /* Yellow/Orange color */
+}
+
+#walletNFTsGrid .nft-card-name.mindling-nft-name {
+  color: #ffc107 !important; /* Yellow/Orange color */
+}
+
 .nft-card-mint {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.7);
