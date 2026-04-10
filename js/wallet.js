@@ -156,10 +156,6 @@ let WALLET_STATE = {
           if (window.backpack?.solana) return window.backpack.solana;
           if (window.solana?.isBackpack) return window.solana;
           return null;
-        case 'magicEden':
-          if (window.magicEden?.solana) return window.magicEden.solana;
-          if (window.solana?.isMagicEden) return window.solana;
-          return null;
         default:
           return null;
       }
@@ -170,8 +166,14 @@ let WALLET_STATE = {
       if (getWalletProvider('phantom')) available.push('phantom');
       if (getWalletProvider('solflare')) available.push('solflare');
       if (getWalletProvider('backpack')) available.push('backpack');
-      if (getWalletProvider('magicEden')) available.push('magicEden');
+      if (isAndroidMobileWeb()) available.push('solanaMobile');
       return available;
+    }
+
+    /** Android Web (Chrome / Solana Seeker browser) — Mobile Wallet Adapter works here; not on iOS Safari. */
+    function isAndroidMobileWeb() {
+      if (typeof navigator === 'undefined') return false;
+      return /Android/i.test(navigator.userAgent || '');
     }
 
     function getWalletDisplayName(walletName) {
@@ -179,7 +181,7 @@ let WALLET_STATE = {
         'phantom': 'Phantom',
         'solflare': 'Solflare',
         'backpack': 'Backpack',
-        'magicEden': 'Magic Eden'
+        'solanaMobile': 'Solana Mobile Adapter'
       };
       return names[walletName] || walletName.charAt(0).toUpperCase() + walletName.slice(1).replace(/([A-Z])/g, ' $1');
     }
@@ -189,7 +191,7 @@ let WALLET_STATE = {
         'phantom': 'fa-solid fa-ghost',
         'solflare': 'fa-solid fa-sun',
         'backpack': 'fa-solid fa-bag-shopping',
-        'magicEden': 'fa-solid fa-gem'
+        'solanaMobile': 'fa-solid fa-mobile-screen-button'
       };
       return icons[walletName] || 'fa-solid fa-wallet';
     }
@@ -199,7 +201,7 @@ let WALLET_STATE = {
         'phantom': 'img/wallets/phantom.png',
         'solflare': 'img/wallets/solflare.png',
         'backpack': 'img/wallets/backpack.png',
-        'magicEden': 'img/wallets/magiceden.png'
+        'solanaMobile': 'img/wallets/solana-mobile-adapter.png'
       };
       return logos[walletName] || 'img/wallets/default.png';
     }
@@ -221,7 +223,7 @@ let WALLET_STATE = {
         { id: 'phantom', name: 'Phantom', color: '#AB9FF2' },
         { id: 'solflare', name: 'Solflare', color: '#FFB800' },
         { id: 'backpack', name: 'Backpack', color: '#FF6B35' },
-        { id: 'magicEden', name: 'Magic Eden', color: '#00D4FF' }
+        { id: 'solanaMobile', name: 'Solana Mobile Adapter', color: '#9945FF' }
       ];
       
       const available = detectAvailableWallets();
@@ -406,148 +408,100 @@ let WALLET_STATE = {
       throw new Error(`All RPC endpoints failed for ${description}`);
     }
 
+    // Fetch $WOOD balance for any owner address (used for connected wallet and for search-by-address)
+    const TOKEN_MINT_WOOD = '674PmuiDtgKx3uKuJ1B16f9m5L84eFvNwj3xDMvHcbo7'; // $WOOD token
+    async function fetchWoodBalanceForOwner(ownerPublicKey) {
+      let tokenBalance = 0;
+      const TOKEN_MINT_PUBKEY = new web3.PublicKey(TOKEN_MINT_WOOD);
+      try {
+        try {
+          const tokenAccounts = await tryRPCWithFallback(async (conn) => {
+            return await conn.getParsedTokenAccountsByOwner(
+              ownerPublicKey,
+              { mint: TOKEN_MINT_PUBKEY },
+              'confirmed'
+            );
+          }, 'getParsedTokenAccountsByOwner ($WOOD)');
+          if (tokenAccounts && tokenAccounts.value && tokenAccounts.value.length > 0) {
+            for (const accountInfo of tokenAccounts.value) {
+              const parsed = accountInfo.account?.data?.parsed;
+              if (parsed && parsed.info) {
+                const info = parsed.info;
+                const mintAddress = info.mint;
+                if (mintAddress && (mintAddress === TOKEN_MINT_WOOD || mintAddress.toString() === TOKEN_MINT_WOOD)) {
+                  const tokenAmount = info.tokenAmount;
+                  if (tokenAmount) {
+                    let amount = 0;
+                    if (tokenAmount.uiAmount !== undefined && tokenAmount.uiAmount !== null) {
+                      amount = parseFloat(tokenAmount.uiAmount);
+                    } else if (tokenAmount.uiAmountString) {
+                      amount = parseFloat(tokenAmount.uiAmountString);
+                    } else if (tokenAmount.amount) {
+                      const decimals = tokenAmount.decimals || 9;
+                      const rawAmount = typeof tokenAmount.amount === 'string' ? BigInt(tokenAmount.amount) : BigInt(tokenAmount.amount);
+                      amount = Number(rawAmount) / Math.pow(10, decimals);
+                    }
+                    if (amount > 0) tokenBalance += amount;
+                  }
+                }
+              }
+            }
+          }
+        } catch (method1Error) {
+          const allTokenAccounts = await tryRPCWithFallback(async (conn) => {
+            return await conn.getParsedTokenAccountsByOwner(
+              ownerPublicKey,
+              { programId: new web3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') },
+              'confirmed'
+            );
+          }, 'getAllParsedTokenAccounts ($WOOD)');
+          if (allTokenAccounts && allTokenAccounts.value) {
+            for (const accountInfo of allTokenAccounts.value) {
+              const parsed = accountInfo.account?.data?.parsed;
+              if (parsed && parsed.info) {
+                const mintAddress = parsed.info.mint;
+                if (mintAddress && (mintAddress === TOKEN_MINT_WOOD || mintAddress.toString() === TOKEN_MINT_WOOD)) {
+                  const tokenAmount = parsed.info.tokenAmount;
+                  if (tokenAmount) {
+                    let amount = 0;
+                    if (tokenAmount.uiAmount !== undefined && tokenAmount.uiAmount !== null) {
+                      amount = parseFloat(tokenAmount.uiAmount);
+                    } else if (tokenAmount.uiAmountString) {
+                      amount = parseFloat(tokenAmount.uiAmountString);
+                    }
+                    if (amount > 0) tokenBalance += amount;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch $WOOD balance for address:', err?.message);
+      }
+      return tokenBalance;
+    }
+
+    // Expose for gallery.js: fetch $WOOD balance for any address string (e.g. when searching by wallet)
+    window.fetchWoodBalanceForAddress = async function(ownerAddress) {
+      try {
+        const pubkey = new web3.PublicKey(ownerAddress);
+        return await fetchWoodBalanceForOwner(pubkey);
+      } catch (e) {
+        return 0;
+      }
+    };
+
     async function refreshTokenBalance() {
       if (!WALLET_STATE.wallet) {
         console.log('No wallet connected, skipping token balance');
         return;
       }
-      
       try {
-        const TOKEN_MINT = '674PmuiDtgKx3uKuJ1B16f9m5L84eFvNwj3xDMvHcbo7'; // $WOOD token
-        const TOKEN_MINT_PUBKEY = new web3.PublicKey(TOKEN_MINT);
-        console.log('Fetching token balance for:', TOKEN_MINT);
-        console.log('Wallet address:', WALLET_STATE.wallet.toString());
-        
-        let tokenBalance = 0;
-        
-        // Method 1: Try getParsedTokenAccountsByOwner with mint filter
-        try {
-          console.log('Method 1: Using getParsedTokenAccountsByOwner with mint filter...');
-          const tokenAccounts = await tryRPCWithFallback(async (conn) => {
-            return await conn.getParsedTokenAccountsByOwner(
-              WALLET_STATE.wallet,
-              {
-                mint: TOKEN_MINT_PUBKEY
-              },
-              'confirmed'
-            );
-          }, 'getParsedTokenAccountsByOwner (Method 1)');
-          
-          console.log('Token accounts response:', JSON.stringify(tokenAccounts, null, 2));
-          
-          if (tokenAccounts && tokenAccounts.value && tokenAccounts.value.length > 0) {
-            // Sum up all token accounts for this mint
-            for (const accountInfo of tokenAccounts.value) {
-              console.log('Processing token account:', accountInfo.pubkey?.toString() || 'unknown');
-              
-              // Try to extract token amount - the structure should be:
-              // accountInfo.account.data.parsed.info.tokenAmount
-              const parsed = accountInfo.account?.data?.parsed;
-              
-              if (parsed && parsed.info) {
-                const info = parsed.info;
-                
-                // Verify this is the correct mint
-                const mintAddress = info.mint;
-                if (mintAddress && (mintAddress === TOKEN_MINT || mintAddress.toString() === TOKEN_MINT)) {
-                  const tokenAmount = info.tokenAmount;
-                  
-                  if (tokenAmount) {
-                    console.log('Token amount object:', JSON.stringify(tokenAmount, null, 2));
-                    
-                    // Try to get the UI amount (human-readable)
-                    let amount = 0;
-                    if (tokenAmount.uiAmount !== undefined && tokenAmount.uiAmount !== null) {
-                      amount = parseFloat(tokenAmount.uiAmount);
-                      console.log('Found uiAmount:', amount);
-                    } else if (tokenAmount.uiAmountString) {
-                      amount = parseFloat(tokenAmount.uiAmountString);
-                      console.log('Found uiAmountString:', amount);
-                    } else if (tokenAmount.amount) {
-                      // If we have raw amount, need to divide by decimals
-                      const decimals = tokenAmount.decimals || 9;
-                      console.log('Found raw amount:', tokenAmount.amount, 'decimals:', decimals);
-                      const rawAmount = typeof tokenAmount.amount === 'string' 
-                        ? BigInt(tokenAmount.amount) 
-                        : BigInt(tokenAmount.amount);
-                      amount = Number(rawAmount) / Math.pow(10, decimals);
-                      console.log('Calculated amount from raw:', amount);
-                    }
-                    
-                    if (amount > 0) {
-                      console.log('Extracted amount:', amount);
-                      tokenBalance += amount;
-                    }
-                  } else {
-                    console.warn('Token amount not found in account info');
-                  }
-                } else {
-                  console.warn('Mint address mismatch. Expected:', TOKEN_MINT, 'Got:', mintAddress);
-                }
-              } else {
-                console.warn('Could not find parsed account data:', accountInfo);
-              }
-            }
-          } else {
-            console.log('Method 1: No token accounts found for this mint');
-          }
-        } catch (method1Error) {
-          console.warn('Method 1 failed:', method1Error);
-          
-          // Method 2: Get ALL token accounts and filter by mint
-          try {
-            console.log('Method 2: Getting all token accounts and filtering...');
-            const allTokenAccounts = await tryRPCWithFallback(async (conn) => {
-              return await conn.getParsedTokenAccountsByOwner(
-                WALLET_STATE.wallet,
-                {
-                  programId: new web3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-                },
-                'confirmed'
-              );
-            }, 'getAllParsedTokenAccounts');
-            
-            console.log(`Found ${allTokenAccounts?.value?.length || 0} total token accounts`);
-            
-            if (allTokenAccounts && allTokenAccounts.value) {
-              for (const accountInfo of allTokenAccounts.value) {
-                const parsed = accountInfo.account?.data?.parsed;
-                
-                if (parsed && parsed.info) {
-                  const mintAddress = parsed.info.mint;
-                  
-                  // Check if this matches our token mint
-                  if (mintAddress && (mintAddress === TOKEN_MINT || mintAddress.toString() === TOKEN_MINT)) {
-                    const tokenAmount = parsed.info.tokenAmount;
-                    
-                    if (tokenAmount) {
-                      let amount = 0;
-                      if (tokenAmount.uiAmount !== undefined && tokenAmount.uiAmount !== null) {
-                        amount = parseFloat(tokenAmount.uiAmount);
-                      } else if (tokenAmount.uiAmountString) {
-                        amount = parseFloat(tokenAmount.uiAmountString);
-                      }
-                      
-                      if (amount > 0) {
-                        console.log('Method 2: Found $WOOD balance:', amount);
-                        tokenBalance += amount;
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          } catch (method2Error) {
-            console.error('Method 2 also failed:', method2Error);
-          }
-        }
-        
-        console.log('Final token balance:', tokenBalance);
-        WALLET_STATE.tokenBalance = tokenBalance;
+        WALLET_STATE.tokenBalance = await fetchWoodBalanceForOwner(WALLET_STATE.wallet);
         updateTokenBalanceDisplay();
       } catch (err) {
         console.error('Failed to fetch token balance:', err);
-        console.error('Error details:', err.message, err.stack);
         WALLET_STATE.tokenBalance = 0;
         updateTokenBalanceDisplay();
       }
@@ -560,6 +514,11 @@ let WALLET_STATE = {
       if (!display || !amountEl) return;
       
       if (WALLET_STATE.connected && WALLET_STATE.wallet) {
+        // MY GALLERY is showing a pasted/searched address — single WOOD row uses that balance only
+        if (typeof window !== 'undefined' && window.MY_GALLERY_VIEWING_ADDRESS) {
+          display.style.display = 'none';
+          return;
+        }
         const balance = WALLET_STATE.tokenBalance || 0;
         amountEl.textContent = balance.toLocaleString('en-US', {
           minimumFractionDigits: 2,
@@ -616,13 +575,92 @@ let WALLET_STATE = {
       WALLET_STATE.listenersBound = true;
     }
 
+    /**
+     * Connect via Mobile Wallet Adapter (MWA) — Android Chrome, Solana Seeker browser, etc.
+     * @see https://docs.solanamobile.com/developers/mobile-wallet-adapter
+     */
+    async function connectSolanaMobileWithAdapter() {
+      if (WALLET_STATE.wallet || WALLET_STATE.connecting) return;
+      WALLET_STATE.connecting = true;
+      try {
+        const mobileMod = await import(
+          'https://esm.sh/@solana-mobile/wallet-adapter-mobile@2.1.4?deps=@solana/web3.js@1.95.8,@solana/wallet-adapter-base@0.9.23'
+        );
+        const baseMod = await import(
+          'https://esm.sh/@solana/wallet-adapter-base@0.9.23?deps=@solana/web3.js@1.95.8'
+        );
+
+        const Adapter = mobileMod.SolanaMobileWalletAdapter || mobileMod.default;
+        const createDefaultAddressSelector = mobileMod.createDefaultAddressSelector;
+        const createDefaultAuthorizationResultCache = mobileMod.createDefaultAuthorizationResultCache;
+        const createDefaultWalletNotFoundHandler = mobileMod.createDefaultWalletNotFoundHandler;
+        const { WalletAdapterNetwork } = baseMod;
+
+        if (!Adapter || typeof Adapter !== 'function' || !createDefaultAddressSelector) {
+          throw new Error('Could not load Solana Mobile Adapter modules.');
+        }
+
+        const adapter = new Adapter({
+          addressSelector: createDefaultAddressSelector(),
+          appIdentity: {
+            name: 'Mindfolk Collection Gallery',
+            uri: window.location.origin,
+            icon: new URL('img/mf_dc_icon.png', window.location.origin).href,
+          },
+          authorizationResultCache: createDefaultAuthorizationResultCache(),
+          cluster: WalletAdapterNetwork.Mainnet,
+          onWalletNotFound: createDefaultWalletNotFoundHandler(),
+        });
+
+        await adapter.connect();
+        const pk = adapter.publicKey;
+        if (!pk) throw new Error('Wallet did not provide a public key.');
+        WALLET_STATE.wallet = new web3.PublicKey(pk.toString());
+        WALLET_STATE.provider = adapter;
+        WALLET_STATE.listenersBound = false;
+        if (typeof adapter.on === 'function') {
+          bindProviderEvents();
+        } else {
+          WALLET_STATE.listenersBound = true;
+        }
+
+        refreshBalance().catch(err => console.warn('Balance refresh failed (non-blocking):', err));
+        updateWalletIndicator();
+        WALLET_STATE.connected = true;
+        updateWalletUI();
+        refreshTokenBalance().catch(err => console.warn('Token balance refresh failed (non-blocking):', err));
+        console.log('Solana Mobile Adapter connected.');
+        window.dispatchEvent(new CustomEvent('walletConnected'));
+      } catch (err) {
+        if (err?.code === 4001) {
+          alert('Wallet connection cancelled.');
+        } else {
+          console.error('Solana Mobile Adapter connect error', err);
+          alert(
+            err?.message ||
+              'Solana Mobile Adapter connection failed. Use Chrome on Android (or your device browser), install a compatible wallet, and try again. iOS Safari does not support MWA yet.'
+          );
+        }
+        WALLET_STATE.provider = null;
+        WALLET_STATE.currentWalletName = null;
+      } finally {
+        WALLET_STATE.connecting = false;
+        updateWalletUI();
+      }
+    }
+
     async function connectWallet() {
       const selectedWallet = WALLET_STATE.currentWalletName || '';
       if (!selectedWallet) {
         openWalletModal();
         return;
       }
-      
+
+      if (selectedWallet === 'solanaMobile') {
+        await connectSolanaMobileWithAdapter();
+        return;
+      }
+
       const provider = getWalletProvider(selectedWallet);
       if (!provider) {
         const walletName = getWalletDisplayName(selectedWallet);
@@ -673,13 +711,15 @@ let WALLET_STATE = {
     }
 
     async function disconnectWallet() {
-      if (!WALLET_STATE.provider || !WALLET_STATE.wallet) return;
+      if (!WALLET_STATE.wallet) return;
       try {
         if (WALLET_STATE.provider && typeof WALLET_STATE.provider.removeAllListeners === 'function') {
-          WALLET_STATE.provider.removeAllListeners('disconnect');
-          WALLET_STATE.provider.removeAllListeners('accountChanged');
+          try {
+            WALLET_STATE.provider.removeAllListeners('disconnect');
+            WALLET_STATE.provider.removeAllListeners('accountChanged');
+          } catch (_) { /* some adapters omit listeners */ }
         }
-        await WALLET_STATE.provider.disconnect?.();
+        await WALLET_STATE.provider?.disconnect?.();
       } catch (err) {
         console.warn('Wallet disconnect error', err);
       } finally {

@@ -50,47 +50,46 @@
           <button
             class="navbar-toggler"
             type="button"
-            data-mdb-collapse-init
-            data-mdb-target="#navbarSupportedContent"
             aria-controls="navbarSupportedContent"
             aria-expanded="false"
             aria-label="Toggle navigation"
+            id="navbarMenuToggler"
           >
             <i class="fas fa-bars"></i>
           </button>
-          <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <!-- Theme Switcher - Centered -->
-            <div class="navbar-nav mx-auto d-flex align-items-center">
-              <span class="theme-label me-2" style="font-weight: 500;">THEME</span>
-              <div class="theme-switcher btn-group" role="group">
-                <button id="themeModern" class="btn btn-sm btn-outline-warning theme-btn active" data-theme="modern">
-                  <i class="fas fa-palette"></i> Modern
-                </button>
-                <button id="themeClassic" class="btn btn-sm btn-outline-warning theme-btn" data-theme="classic">
-                  <i class="fas fa-paint-brush"></i> Classic
-                </button>
-              </div>
-            </div>
-            <!-- End Theme Switcher -->
-            <ul class="navbar-nav d-flex flex-row align-items-center">
-              <li class="nav-item me-2" id="walletIndicator" style="display: none;">
-                <div class="wallet-indicator d-flex align-items-center gap-2">
-                  <img id="walletIndicatorIcon" src="" alt="Wallet" style="height:24px;width:24px;border-radius:6px;" loading="lazy" />
-                  <div class="wallet-indicator-info d-flex flex-column">
-                    <span class="wallet-indicator-name" id="walletIndicatorName" style="font-size:0.75rem;font-weight:600;line-height:1.2;"></span>
-                    <span class="wallet-indicator-balance" id="walletIndicatorBalance" style="font-size:0.7rem;opacity:0.8;line-height:1.2;"></span>
-                  </div>
+          <div class="collapse navbar-collapse navbar-collapse-content" id="navbarSupportedContent">
+            <div class="navbar-controls-stack w-100 d-flex flex-column flex-lg-row align-items-center gap-3 py-2 py-lg-0">
+              <div class="navbar-theme-strip d-flex align-items-center justify-content-center flex-wrap gap-2 flex-lg-grow-1">
+                <span class="theme-label mb-0 text-nowrap" style="font-weight: 500;">THEME</span>
+                <div class="theme-switcher btn-group" role="group">
+                  <button id="themeModern" class="btn btn-sm btn-outline-warning theme-btn active" data-theme="modern" type="button">
+                    <i class="fas fa-palette"></i> Modern
+                  </button>
+                  <button id="themeClassic" class="btn btn-sm btn-outline-warning theme-btn" data-theme="classic" type="button">
+                    <i class="fas fa-paint-brush"></i> Classic
+                  </button>
                 </div>
-              </li>
-              <li class="nav-item">
-                <button id="connectWalletBtn" class="btn btn-warning btn-sm" data-connect-wallet>
-                  <i class="fas fa-wallet"></i> Connect Wallet
-                </button>
-                <button id="disconnectWalletBtn" class="btn btn-outline-light btn-sm d-none" data-disconnect-wallet>
-                  Disconnect
-                </button>
-              </li>
-            </ul>
+              </div>
+              <ul class="navbar-nav navbar-wallet-strip d-flex flex-row flex-wrap align-items-center justify-content-center justify-content-lg-end gap-2 mb-0 flex-shrink-0">
+                <li class="nav-item" id="walletIndicator" style="display: none;">
+                  <div class="wallet-indicator d-flex align-items-center gap-2">
+                    <img id="walletIndicatorIcon" src="" alt="Wallet" style="height:24px;width:24px;border-radius:6px;" loading="lazy" />
+                    <div class="wallet-indicator-info d-flex flex-column">
+                      <span class="wallet-indicator-name" id="walletIndicatorName" style="font-size:0.75rem;font-weight:600;line-height:1.2;"></span>
+                      <span class="wallet-indicator-balance" id="walletIndicatorBalance" style="font-size:0.7rem;opacity:0.8;line-height:1.2;"></span>
+                    </div>
+                  </div>
+                </li>
+                <li class="nav-item flex-shrink-0">
+                  <button id="connectWalletBtn" class="btn btn-warning btn-sm" data-connect-wallet type="button">
+                    <i class="fas fa-wallet"></i> Connect Wallet
+                  </button>
+                  <button id="disconnectWalletBtn" class="btn btn-outline-light btn-sm d-none" data-disconnect-wallet type="button">
+                    Disconnect
+                  </button>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </nav>
@@ -107,6 +106,16 @@
                   <i class="fas fa-wallet"></i> Connect Wallet
                 </button>
               </div>
+              <!-- Search by wallet address -->
+              <div class="wallet-address-search mt-3 mx-auto" style="max-width: 480px;">
+                <div class="input-group">
+                  <input type="text" id="walletAddressSearch" class="form-control bg-dark text-white border-warning" placeholder="Wallet address or name.sol (e.g. nomadz.sol)..." spellcheck="false" autocomplete="off" aria-label="Wallet address or Solana domain" />
+                  <button id="loadAddressNFTsBtn" class="btn btn-warning" type="button" aria-label="Check wallet for this address">
+                    <i class="fas fa-search"></i> Check Wallet
+                  </button>
+                </div>
+                <p class="wallet-address-search-hint mt-1 mb-0">view mindfolk &amp; mindlings nfts for any wallet or .sol name</p>
+              </div>
               <!-- Token Balance Display -->
               <div id="tokenBalanceDisplay" class="token-balance-display mt-3" style="display: none;">
                 <div class="card bg-dark border-warning" style="background: rgba(0,0,0,0.7) !important; border: 2px solid #ffc107; border-radius: 0.75rem; padding: 1rem 1.5rem; display: inline-block; margin: 0 auto; box-shadow: 0 10px 30px rgba(255, 193, 7, 0.3);">
@@ -122,9 +131,24 @@
                 </div>
               </div>
               
+              <!-- $WOOD balance for searched address (shown when viewing by address, not when connected) -->
+              <div id="searchedAddressWoodDisplay" class="token-balance-display mt-3" style="display: none;">
+                <div class="card bg-dark border-warning" style="background: rgba(0,0,0,0.7) !important; border: 2px solid #ffc107; border-radius: 0.75rem; padding: 1rem 1.5rem; display: inline-block; margin: 0 auto; box-shadow: 0 10px 30px rgba(255, 193, 7, 0.3);">
+                  <div class="card-body text-center" style="padding: 0;">
+                    <div class="token-amount d-flex align-items-center justify-content-center gap-2" style="font-size: 1.5rem; font-weight: bold; color: #ffc107; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                      <div style="width: 40px; height: 40px; border-radius: 50%; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.5); flex-shrink: 0;">
+                        <img src="img/wood-token.png" alt="$WOOD" style="width: 100%; height: 100%; object-fit: contain; display: block;" onerror="this.onerror=null; this.src='img/mfcircle.png';" />
+                      </div>
+                      <span id="searchedAddressWoodAmount">0.00</span>
+                      <span class="text-white" style="font-size: 1rem; margin-left: 0.5rem;">$WOOD</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <!-- Wallet NFTs Display - My Gallery (moved to hero section) -->
               <div id="walletNFTsDisplay" class="wallet-nfts-display mt-5" style="display: none;">
                 <div id="walletGalleryHeader" class="text-center mb-4">
+                  <p id="walletViewingAddressLabel" class="text-warning small mb-2" style="display: none;"></p>
                   <div class="gallery-stats mb-4">
                     <span class="badge bg-warning text-dark me-2" id="walletNFTsCount">You have 0 Mindfolk NFTs</span>
                     <span class="badge bg-warning text-dark me-2" id="walletMindlingsCount" style="display: none;">You have 0 Mindlings NFTs</span>
@@ -177,7 +201,7 @@
           </div>
         </div>
         
-        <div id="galleryGrid" class="row g-4 text-start">
+        <div id="galleryGrid" class="gallery-mosaic text-start gallery-view-6col">
           <!-- NFTs will be loaded here -->
         </div>
 
@@ -254,11 +278,24 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mdb-ui-kit@9.1.0/js/mdb.min.js"></script>
     <script id="solana-web3-script" src="https://unpkg.com/@solana/web3.js@1.95.1/lib/index.iife.min.js"></script>
+    <!-- Solana Mobile Wallet Adapter (Android Chrome / Seeker): https://docs.solanamobile.com/get-started/web/installation -->
+    <script type="module" src="js/register-mwa.js"></script>
     <!-- Load gallery.js first to define CONFIG (made globally available), then wallet.js can access it -->
     <script src="js/gallery.js"></script>
     <script src="js/wallet.js"></script>
     <script src="js/theme-switcher.js"></script>
     <script>
+      // Navbar menu toggle (small screens): MDB data-mdb-collapse-init on the button did not attach a handler
+      (function () {
+        const btn = document.getElementById('navbarMenuToggler');
+        const menu = document.getElementById('navbarSupportedContent');
+        if (!btn || !menu) return;
+        btn.addEventListener('click', function () {
+          const open = menu.classList.toggle('show');
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+
       // Navbar scroll behavior
       (function () {
         const nav = document.querySelector('.navbar');
@@ -302,11 +339,10 @@
           
           // Close mobile menu
           const navEl = document.getElementById('navbarSupportedContent');
+          const toggler = document.getElementById('navbarMenuToggler');
           if (navEl && navEl.classList.contains('show')) {
-            try {
-              if (window.mdb?.Collapse) new mdb.Collapse(navEl).hide();
-              else navEl.classList.remove('show');
-            } catch (_) { navEl.classList.remove('show'); }
+            navEl.classList.remove('show');
+            if (toggler) toggler.setAttribute('aria-expanded', 'false');
           }
         });
       });

@@ -242,6 +242,17 @@ body.theme-classic .intro h2 {
   color: #0a3e54;
 }
 
+/* Wallet address search helper — classic hero (small, lowercase, readable on cream) */
+body.theme-classic .wallet-address-search-hint {
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.35;
+  color: rgba(10, 62, 84, 0.65);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
 /* Gallery Section - Wheat with brush image */
 body.theme-classic #gallery {
   background-color: #ebd59d !important;
@@ -327,7 +338,8 @@ body.theme-classic .nft-card:hover {
 
 /* Prevent card shrinking - ensure consistent sizing */
 body.theme-classic #galleryGrid > div,
-body.theme-classic #galleryGrid > .col {
+body.theme-classic #galleryGrid > .col,
+body.theme-classic #galleryGrid > .gallery-mosaic-cell {
   transition: none !important;
 }
 
@@ -371,9 +383,16 @@ body.theme-classic .gallery-view-6col .nft-card-name {
   font-size: 0.75rem !important; /* Even smaller than 0.85rem */
 }
 
-/* MY GALLERY (Wallet Gallery) - Match Main Gallery name size */
+/* MY GALLERY (Wallet Gallery) — readable names; never use 12-col tiny/wrap rules */
 body.theme-classic #walletNFTsGrid .nft-card-name {
-  font-size: 0.75rem !important; /* Match 6 col view size */
+  font-size: 0.85rem !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  min-height: unset !important;
 }
 
 /* 12 Col View - Much smaller name and type */

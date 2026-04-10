@@ -1,6 +1,6 @@
 // Alternative method: Fetch NFTs by creator or update authority
 // Using native fetch (Node.js 18+)
-const HELIUS_API_KEY = '393d535c-31f8-4316-bc07-6f6bb8ae1cdf';
+const HELIUS_API_KEY = '5f0e398a-0064-4fd2-9c43-e2f8f915331c';
 const HELIUS_RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
 const HELIUS_V0_ENDPOINT = `https://api.helius.xyz/v0`;
 
@@ -289,4 +289,5 @@ async function main() {
 }
 
 main();
+
 

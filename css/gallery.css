@@ -8,7 +8,51 @@
   min-height: 50vh;
 }
 
-/* 12 Columns View - Reduce gap between cards and increase card width slightly */
+/* Mindfolk collection (#galleryGrid): fixed tile sizes — 6 vs 12 is density, not “% of viewport” */
+#galleryGrid.gallery-mosaic {
+  display: grid;
+  width: 100%;
+  gap: 1rem;
+  justify-content: center;
+  align-content: start;
+  align-items: start;
+  --mosaic-cell: 200px;
+  grid-template-columns: repeat(auto-fill, var(--mosaic-cell));
+}
+
+#galleryGrid.gallery-mosaic.gallery-view-12col {
+  --mosaic-cell: 118px;
+}
+
+#galleryGrid.gallery-mosaic > .gallery-mosaic-cell {
+  width: min(100%, var(--mosaic-cell));
+  max-width: var(--mosaic-cell);
+  min-width: 0;
+  justify-self: center;
+}
+
+#galleryGrid.gallery-mosaic .nft-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+#galleryGrid.gallery-mosaic > .gallery-mosaic-span-full {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 420px) {
+  #galleryGrid.gallery-mosaic.gallery-view-6col {
+    --mosaic-cell: 168px;
+  }
+  #galleryGrid.gallery-mosaic.gallery-view-12col {
+    --mosaic-cell: 104px;
+  }
+}
+
+/* Bootstrap row + 12-col view (e.g. Mindlings) — tighter gutters */
 .gallery-view-12col.row {
   --bs-gutter-x: 0.5rem;
 }
@@ -18,7 +62,7 @@
   padding-left: 0.25rem;
 }
 
-.gallery-view-12col .nft-card {
+.gallery-view-12col.row .nft-card {
   min-width: calc(100% + 5px);
   width: calc(100% + 5px);
 }
@@ -72,9 +116,34 @@
 }
 
 
-/* Ensure wallet gallery grid matches main gallery grid width */
+/* Ensure wallet gallery grid matches main gallery grid width (row must stay full-width with few cards) */
 #walletNFTsGrid {
   width: 100%;
+  max-width: 100%;
+}
+
+/* Avoid Bootstrap row stretch equalizing column height (was stretching card chrome oddly on narrow layouts) */
+#walletNFTsGrid.row,
+#galleryGrid.row:not(.gallery-view-list) {
+  align-items: flex-start;
+}
+
+/* Wallet NFT cards: never apply main-gallery 12-col "tiny card" sizing (descendant selectors) */
+#walletNFTsGrid .nft-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+#walletNFTsGrid .nft-card-name {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#walletNFTsGrid .nft-card-mint {
+  font-size: 0.8rem;
 }
 
 /* Ensure both gallery grids have the same constraints */
@@ -87,6 +156,7 @@
 /* Ensure wallet gallery container doesn't add extra constraints */
 .wallet-nfts-display {
   width: 100%;
+  max-width: 100%;
 }
 
 .gallery-header-controls {
@@ -801,5 +871,13 @@
 .token-amount {
   font-family: 'Roboto', sans-serif;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Wallet search helper line — modern theme hero */
+body.theme-modern .wallet-address-search-hint {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
 }
 

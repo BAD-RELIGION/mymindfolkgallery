@@ -4,7 +4,7 @@ const CONFIG = {
   // Helius API endpoint - you can get a free API key from https://www.helius.dev/
   // You can also set it in the browser console: CONFIG.HELIUS_API_KEY = 'your-api-key'
   // Default API key (can be overridden by localStorage or URL param)
-  HELIUS_API_KEY: localStorage.getItem('helius_api_key') || '393d535c-31f8-4316-bc07-6f6bb8ae1cdf',
+  HELIUS_API_KEY: localStorage.getItem('helius_api_key') || '5f0e398a-0064-4fd2-9c43-e2f8f915331c',
   HELIUS_ENDPOINT: 'https://api.helius.xyz/v0',
   HELIUS_RPC: 'https://mainnet.helius-rpc.com',
   RPC_ENDPOINT: 'https://api.mainnet-beta.solana.com',
@@ -49,6 +49,16 @@ let arweaveImageMap = new Map(); // Map filename to Arweave URL (from arweave_im
 let arweaveMintMap = new Map(); // Map mint ID to Arweave URL (from merged_mindfolk_data.json)
 let mainGalleryView = localStorage.getItem('mainGalleryView') || '6col'; // View mode for main gallery only
 
+/** Bootstrap row (list) vs CSS grid mosaic (6col / 12col) for Mindfolk collection */
+function getMainGalleryGridWrapperClass(view = mainGalleryView) {
+  if (view === 'list') return `row g-4 text-start gallery-view-${view}`;
+  return `gallery-mosaic text-start gallery-view-${view}`;
+}
+
+function mainGalleryEmptyRowClass() {
+  return mainGalleryView === 'list' ? 'col-12 text-center' : 'gallery-mosaic-span-full text-center';
+}
+
 // Mindlings collection state
 let mindlingsNFTs = [];
 let mindlingsDisplayedNFTs = [];
@@ -60,6 +70,68 @@ let mindlingsGalleryView = localStorage.getItem('mindlingsGalleryView') || '6col
 // Default collection address
 const DEFAULT_COLLECTION = '4169793782b418e3dbb9fd36b364388ceb63321a743009b9dfc2378392016a0d';
 const MINDLINGS_COLLECTION = '5YugNNZcTAPY2tVCv5PDLPmjyCgK4PKQnmn6b36d4XCr'; // Mindlings collection address (corrected)
+
+// Display order: ELDERS → MUSHROOM HEAD → OGs → FOUNDERS (each group by sequence number where applicable)
+const DISPLAY_ORDER = { Elder: 0, 'Mushroom Head': 1, OG: 2, Founder: 3 };
+function getNftType(nft) {
+  const attrs = nft.attributes || [];
+  const typeAttr = attrs.find(a => (a.trait_type || a.name) === 'Type');
+  return (typeAttr && typeAttr.value) ? String(typeAttr.value).trim() : (nft.originalData && nft.originalData.Type) ? String(nft.originalData.Type).trim() : '';
+}
+function getSequenceFromName(name) {
+  if (!name || typeof name !== 'string') return 0;
+  const founderMatch = name.match(/Mindfolk Founder #(\d+)/i);
+  if (founderMatch) return parseInt(founderMatch[1], 10);
+  const elderMatch = name.match(/Mindfolk Elder #(\d+)/i);
+  if (elderMatch) return parseInt(elderMatch[1], 10);
+  return 0;
+}
+function sortMindfolkByDisplayOrder(nfts) {
+  if (!nfts || nfts.length === 0) return nfts;
+  return [...nfts].sort((a, b) => {
+    const typeA = getNftType(a);
+    const typeB = getNftType(b);
+    const orderA = DISPLAY_ORDER[typeA] ?? 99;
+    const orderB = DISPLAY_ORDER[typeB] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    const seqA = getSequenceFromName(a.name);
+    const seqB = getSequenceFromName(b.name);
+    return seqA - seqB;
+  });
+}
+
+// Solana wallet or SNS (.sol) — resolve to pubkey via Solana Name Service proxy
+const SNS_RESOLVE_PROXY = 'https://sdk-proxy.sns.id/resolve/';
+const SOLANA_PUBKEY_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const SNS_DOMAIN_LABEL_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+
+/**
+ * @returns {Promise<{ pubkey: string, displayLabel: string|null }|{ error: string }>}
+ */
+async function resolveWalletOrDomain(raw) {
+  const t = (raw || '').trim();
+  if (!t) return { error: 'Please enter a wallet address or a .sol name.' };
+  if (SOLANA_PUBKEY_BASE58_RE.test(t)) {
+    return { pubkey: t, displayLabel: null };
+  }
+  let label = t.replace(/^@/, '').toLowerCase();
+  if (label.endsWith('.sol')) label = label.slice(0, -4);
+  if (!SNS_DOMAIN_LABEL_RE.test(label)) {
+    return { error: 'Enter a valid Solana address (32–44 characters) or a .sol domain (e.g. nomadz.sol).' };
+  }
+  try {
+    const res = await fetch(SNS_RESOLVE_PROXY + encodeURIComponent(label));
+    const data = await res.json().catch(() => ({}));
+    if (data.s === 'ok' && data.result && typeof data.result === 'string') {
+      return { pubkey: data.result, displayLabel: `${label}.sol` };
+    }
+    const msg = (data && data.result) ? String(data.result) : 'Domain not found';
+    return { error: msg };
+  } catch (e) {
+    console.warn('SNS resolve failed:', e);
+    return { error: 'Could not resolve .sol domain. Check your connection or try the wallet address.' };
+  }
+}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -239,6 +311,18 @@ function setupEventListeners() {
   const viewWalletNFTsBtn = document.getElementById('viewWalletNFTsBtn');
   if (viewWalletNFTsBtn) {
     viewWalletNFTsBtn.addEventListener('click', handleViewWalletNFTs);
+  }
+
+  // Search by wallet address - load NFTs for any pasted address
+  const walletAddressSearch = document.getElementById('walletAddressSearch');
+  const loadAddressNFTsBtn = document.getElementById('loadAddressNFTsBtn');
+  if (loadAddressNFTsBtn && walletAddressSearch) {
+    loadAddressNFTsBtn.addEventListener('click', () => loadNFTsForAddress(walletAddressSearch.value));
+  }
+  if (walletAddressSearch) {
+    walletAddressSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadNFTsForAddress(walletAddressSearch.value);
+    });
   }
   
   // Mindlings collection event listeners removed - no separate gallery section
@@ -460,8 +544,8 @@ async function fetchNFTsFromCollection(collectionAddress) {
             mint: uniqueNFTs[0].mint
           });
         }
-        
-        return uniqueNFTs;
+        // Order: Elders → Mushroom Head → OGs → Founders (with sequence numbers within each group)
+        return sortMindfolkByDisplayOrder(uniqueNFTs);
       }
     } catch (jsonError) {
       console.warn('Could not load local JSON file, falling back to API:', jsonError);
@@ -993,7 +1077,8 @@ function applyMindlingsGalleryView() {
     if (mindlingsGalleryView === 'list') {
       card.classList.add('col-12', 'col-md-4', 'nft-card-list-item');
     } else if (mindlingsGalleryView === '12col') {
-      card.classList.add('col-6', 'col-md-3', 'col-lg-2', 'col-xl-1');
+      /* Dense tiles on small screens (was col-6 = only 2 per row on mobile = huge cards) */
+      card.classList.add('col-4', 'col-sm-3', 'col-md-2', 'col-lg-2', 'col-xl-1');
     } else {
       // 6col (default)
       card.classList.add('col-6', 'col-md-4', 'col-lg-3', 'col-xl-2');
@@ -1060,10 +1145,10 @@ function switchMainGalleryView(view) {
     }
   });
   
-  // Update gallery grid class
+  // Update gallery grid class (mosaic = fixed tile sizes; row = list view)
   const galleryGrid = document.getElementById('galleryGrid');
   if (galleryGrid) {
-    galleryGrid.className = `row g-4 text-start gallery-view-${view}`;
+    galleryGrid.className = getMainGalleryGridWrapperClass(view);
   }
   
   // Re-apply view to existing cards
@@ -1077,19 +1162,17 @@ function switchMainGalleryView(view) {
 }
 
 function applyMainGalleryView() {
-  const cards = document.querySelectorAll('#galleryGrid > div');
-  cards.forEach(card => {
-    // Remove old column classes
-    card.className = card.className.replace(/col-\d+|col-md-\d+|col-lg-\d+|col-xl-\d+|nft-card-list-item/g, '').trim();
-    
-    // Add new classes based on view (only for main gallery)
+  document.querySelectorAll('#galleryGrid > div').forEach((card) => {
+    if (!card.querySelector('.nft-card')) return;
+    card.className = card.className.replace(
+      /col-\d+|col-md-\d+|col-lg-\d+|col-xl-\d+|nft-card-list-item|gallery-mosaic-cell|gallery-mosaic-span-full/g,
+      ''
+    ).trim();
+
     if (mainGalleryView === 'list') {
       card.classList.add('col-12', 'col-md-4', 'nft-card-list-item');
-    } else if (mainGalleryView === '12col') {
-      card.classList.add('col-6', 'col-md-3', 'col-lg-2', 'col-xl-1');
     } else {
-      // 6col (default)
-      card.classList.add('col-6', 'col-md-4', 'col-lg-3', 'col-xl-2');
+      card.classList.add('gallery-mosaic-cell');
     }
   });
 }
@@ -1143,14 +1226,13 @@ function updateCardImagesForView(view) {
 function createNFTCard(nft, isMainGallery = true) {
   const col = document.createElement('div');
   
-  // Only apply view mode to main gallery, MY GALLERY always uses default
-  if (isMainGallery && mainGalleryView === 'list') {
-    col.className = 'col-12 col-md-4 nft-card-list-item';
-  } else if (isMainGallery && mainGalleryView === '12col') {
-    col.className = 'col-6 col-md-3 col-lg-2 col-xl-1';
-  } else {
-    // Default: 6 columns (or MY GALLERY always uses this)
+  // MY GALLERY (connected / pasted wallet): same 6-column density as main gallery default view
+  if (!isMainGallery) {
     col.className = 'col-6 col-md-4 col-lg-3 col-xl-2';
+  } else if (mainGalleryView === 'list') {
+    col.className = 'col-12 col-md-4 nft-card-list-item';
+  } else {
+    col.className = 'gallery-mosaic-cell';
   }
 
   const card = document.createElement('div');
@@ -1454,8 +1536,9 @@ function handleSearch(e) {
     displayNFTs(displayedNFTs.slice(0, CONFIG.BATCH_SIZE));
     updateLoadMoreButton();
   } else {
-    document.getElementById('galleryGrid').innerHTML = 
-      '<div class="col-12 text-center"><p class="text-muted">No NFTs found matching your search</p></div>';
+    const eg = mainGalleryEmptyRowClass();
+    document.getElementById('galleryGrid').innerHTML =
+      `<div class="${eg}"><p class="text-muted">No NFTs found matching your search</p></div>`;
     document.getElementById('loadMoreContainer').style.display = 'none';
   }
 }
@@ -1833,7 +1916,8 @@ async function handleViewWalletNFTs() {
     document.getElementById('galleryHeader').querySelector('h1').textContent = 'My NFTs';
     
     // Fetch NFTs from wallet using Helius API
-    const nfts = await fetchNFTsFromWallet(walletState.wallet.toString());
+    const result = await fetchNFTsFromWallet(walletState.wallet.toString());
+    const nfts = result.nfts;
     
     if (nfts && nfts.length > 0) {
       allNFTs = nfts;
@@ -1843,7 +1927,9 @@ async function handleViewWalletNFTs() {
       document.getElementById('totalCount').textContent = `${allNFTs.length} NFTs`;
       displayNFTs(displayedNFTs);
     } else {
-      document.getElementById('galleryGrid').innerHTML = '<div class="col-12 text-center"><p class="text-muted">No NFTs found in your wallet</p></div>';
+      const wg = mainGalleryEmptyRowClass();
+      document.getElementById('galleryGrid').innerHTML =
+        `<div class="${wg}"><p class="text-muted">No NFTs found in your wallet</p></div>`;
       document.getElementById('totalCount').textContent = '0 NFTs';
       document.getElementById('emptyState').style.display = 'none';
     }
@@ -1996,9 +2082,10 @@ async function fetchNFTsFromWallet(walletAddress) {
           
           console.log(`✓ Found ${mindfolkNFTs.length} Mindfolk NFTs in wallet (out of ${allWalletNFTs.length} total NFTs)`);
           console.log(`✓ Found ${mindlingsNFTs.length} Mindlings NFTs in wallet`);
-          
-          // Combine NFTs: Mindfolk first, then Mindlings
-          const combinedNFTs = [...mindfolkNFTs, ...mindlingsNFTs];
+          // Order Mindfolk: Elders → Mushroom Head → OGs → Founders (with sequence numbers)
+          const sortedMindfolk = sortMindfolkByDisplayOrder(mindfolkNFTs);
+          // Combine: sorted Mindfolk first, then Mindlings
+          const combinedNFTs = [...sortedMindfolk, ...mindlingsNFTs];
           
           // Update wallet NFT counts display
           const walletNFTsCount = document.getElementById('walletNFTsCount');
@@ -2029,20 +2116,24 @@ async function fetchNFTsFromWallet(walletAddress) {
             }
           }
           
-          // Return combined NFTs: Mindfolk first, then Mindlings
-          return combinedNFTs;
+          // Return combined NFTs with separate counts for display
+          return {
+            nfts: combinedNFTs,
+            mindfolkCount: mindfolkNFTs.length,
+            mindlingsCount: mindlingsNFTs.length
+          };
       } catch (dasError) {
         console.error('Helius DAS API error:', dasError);
         throw dasError;
       }
     }
     
-    // Fallback: Return empty array if API fails
+    // Fallback: Return empty result if API fails
     console.warn('Could not fetch wallet NFTs - Helius API key may be missing or invalid');
-    return [];
+    return { nfts: [], mindfolkCount: 0, mindlingsCount: 0 };
   } catch (error) {
     console.error('Error fetching wallet NFTs:', error);
-    return [];
+    return { nfts: [], mindfolkCount: 0, mindlingsCount: 0 };
   }
 }
 
@@ -2077,8 +2168,8 @@ async function loadWalletNFTs() {
     const walletAddress = walletState.wallet.toString();
     console.log('Loading NFTs from wallet (Mindfolk + Mindlings):', walletAddress);
     
-    const walletNFTs = await fetchNFTsFromWallet(walletAddress);
-    displayWalletNFTs(walletNFTs);
+    const result = await fetchNFTsFromWallet(walletAddress);
+    displayWalletNFTs(result.nfts);
   } catch (error) {
     console.error('Error loading wallet NFTs:', error);
     const walletNFTsDisplay = document.getElementById('walletNFTsDisplay');
@@ -2088,23 +2179,139 @@ async function loadWalletNFTs() {
   }
 }
 
+/** When set, MY GALLERY shows $WOOD for this address; connected-wallet row stays hidden. */
+function syncMyGalleryViewingAddressForWood(viewingAddress) {
+  if (typeof window === 'undefined') return;
+  window.MY_GALLERY_VIEWING_ADDRESS = viewingAddress || null;
+  if (typeof window.updateTokenBalanceDisplay === 'function') {
+    window.updateTokenBalanceDisplay();
+  }
+}
+
+function clearMyGalleryAddressSearchUIOnError() {
+  syncMyGalleryViewingAddressForWood(null);
+  const searchedAddressWoodDisplay = document.getElementById('searchedAddressWoodDisplay');
+  const walletViewingAddressLabel = document.getElementById('walletViewingAddressLabel');
+  if (searchedAddressWoodDisplay) searchedAddressWoodDisplay.style.display = 'none';
+  if (walletViewingAddressLabel) {
+    walletViewingAddressLabel.textContent = '';
+    walletViewingAddressLabel.style.display = 'none';
+  }
+}
+
+// Load NFTs for a given wallet address (search bar) - same display as connected wallet
+async function loadNFTsForAddress(address) {
+  if (collectionMintAddresses.size === 0) {
+    showError('Collection still loading. Please try again in a few seconds.');
+    return;
+  }
+
+  showLoading(true);
+  const walletNFTsDisplay = document.getElementById('walletNFTsDisplay');
+  try {
+    const resolved = await resolveWalletOrDomain(address);
+    if (resolved.error) {
+      showError(resolved.error);
+      clearMyGalleryAddressSearchUIOnError();
+      return;
+    }
+    const pubkey = resolved.pubkey;
+    const viewingDisplayLabel = resolved.displayLabel;
+
+    const result = await fetchNFTsFromWallet(pubkey);
+    const nfts = result.nfts;
+    const woodBalance = typeof window.fetchWoodBalanceForAddress === 'function'
+      ? await window.fetchWoodBalanceForAddress(pubkey)
+      : 0;
+    if (nfts && nfts.length > 0) {
+      displayWalletNFTs(nfts, {
+        viewingAddress: pubkey,
+        viewingDisplayLabel: viewingDisplayLabel,
+        mindfolkCount: result.mindfolkCount,
+        mindlingsCount: result.mindlingsCount,
+        woodBalance: woodBalance
+      });
+    } else {
+      displayWalletNFTs([], {
+        viewingAddress: pubkey,
+        viewingDisplayLabel: viewingDisplayLabel,
+        emptyMessage: 'No Mindfolk or Mindlings NFTs found for this address.',
+        woodBalance: woodBalance
+      });
+    }
+    if (walletNFTsDisplay) walletNFTsDisplay.style.display = 'block';
+  } catch (error) {
+    console.error('Error loading NFTs for address:', error);
+    showError('Failed to load NFTs: ' + (error.message || 'Unknown error'));
+    clearMyGalleryAddressSearchUIOnError();
+  } finally {
+    showLoading(false);
+  }
+}
+
 // Function to display wallet NFTs in the UI
-function displayWalletNFTs(nfts) {
+// options: { viewingAddress?: string, viewingDisplayLabel?: string|null, emptyMessage?: string, mindfolkCount?: number, mindlingsCount?: number, woodBalance?: number }
+function displayWalletNFTs(nfts, options) {
   const walletNFTsDisplay = document.getElementById('walletNFTsDisplay');
   const walletNFTsGrid = document.getElementById('walletNFTsGrid');
   const walletNFTsCount = document.getElementById('walletNFTsCount');
+  const walletViewingAddressLabel = document.getElementById('walletViewingAddressLabel');
+  const walletMindlingsCount = document.getElementById('walletMindlingsCount');
+  const searchedAddressWoodDisplay = document.getElementById('searchedAddressWoodDisplay');
+  const searchedAddressWoodAmount = document.getElementById('searchedAddressWoodAmount');
   
   if (!walletNFTsDisplay || !walletNFTsGrid || !walletNFTsCount) {
     console.error('Wallet NFTs display elements not found');
     return;
   }
 
+  const viewingAddress = options && options.viewingAddress;
+  const viewingDisplayLabel = options && Object.prototype.hasOwnProperty.call(options, 'viewingDisplayLabel')
+    ? options.viewingDisplayLabel
+    : undefined;
+  const emptyMessage = options && options.emptyMessage;
+  const mindfolkCount = options && typeof options.mindfolkCount === 'number' ? options.mindfolkCount : null;
+  const mindlingsCount = options && typeof options.mindlingsCount === 'number' ? options.mindlingsCount : null;
+  const woodBalance = options && typeof options.woodBalance === 'number' ? options.woodBalance : 0;
+
+  syncMyGalleryViewingAddressForWood(viewingAddress);
+
+  if (searchedAddressWoodDisplay && searchedAddressWoodAmount) {
+    if (viewingAddress) {
+      searchedAddressWoodAmount.textContent = woodBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+      searchedAddressWoodDisplay.style.display = 'block';
+    } else {
+      searchedAddressWoodDisplay.style.display = 'none';
+    }
+  }
+
+  if (walletViewingAddressLabel) {
+    if (viewingAddress) {
+      let line;
+      if (viewingDisplayLabel) {
+        line = 'Viewing NFTs for: ' + viewingDisplayLabel;
+      } else {
+        const short = viewingAddress.length > 12 ? viewingAddress.slice(0, 6) + '…' + viewingAddress.slice(-6) : viewingAddress;
+        line = 'Viewing NFTs for: ' + short;
+      }
+      walletViewingAddressLabel.textContent = line;
+      walletViewingAddressLabel.style.display = 'block';
+    } else {
+      walletViewingAddressLabel.textContent = '';
+      walletViewingAddressLabel.style.display = 'none';
+    }
+  }
+
   if (!nfts || nfts.length === 0) {
-    walletNFTsDisplay.style.display = 'none';
+    if (viewingAddress && emptyMessage) {
+      walletNFTsGrid.innerHTML = '<div class="col-12 text-center text-muted py-4">' + emptyMessage + '</div>';
+      walletNFTsDisplay.style.display = 'block';
+    } else {
+      walletNFTsDisplay.style.display = 'none';
+    }
     return;
   }
 
-  
   // Clear existing NFTs
   walletNFTsGrid.innerHTML = '';
   
@@ -2114,8 +2321,16 @@ function displayWalletNFTs(nfts) {
     walletNFTsGrid.appendChild(card);
   });
   
-  // Count text is already updated in fetchNFTsFromWallet function
-  // We don't need to update it here since it's already been set
+  // When viewing by address, show separate Mindfolk and Mindlings counts (same as connected wallet)
+  if (viewingAddress && walletNFTsCount) {
+    const mf = mindfolkCount != null ? mindfolkCount : nfts.length;
+    const ml = mindlingsCount != null ? mindlingsCount : 0;
+    walletNFTsCount.textContent = `This address has ${mf} Mindfolk NFT${mf !== 1 ? 's' : ''}`;
+    if (walletMindlingsCount) {
+      walletMindlingsCount.textContent = `This address has ${ml} Mindlings NFT${ml !== 1 ? 's' : ''}`;
+      walletMindlingsCount.style.display = ml > 0 ? 'inline-block' : 'none';
+    }
+  }
 
   walletNFTsDisplay.style.display = 'block';
 }

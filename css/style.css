@@ -238,6 +238,16 @@ h3 {
   padding-top: 2rem;
   padding-bottom: 0.5rem;
   overflow: visible;
+  width: 100%;
+}
+
+/* MY GALLERY: with few NFTs, this flex item’s min-content width was tiny, so Bootstrap cols
+   collapsed to narrow “pill” cards. Span the full hero width regardless of item count. */
+.intro .mask > .d-flex.justify-content-center {
+  width: 100%;
+  max-width: 100%;
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
 /* Modern mobile viewport fix */
@@ -313,7 +323,8 @@ body.theme-modern #disconnectWalletBtn:hover {
 ========================= */
 @media (max-width: 768px) {
   .intro { background-position: top center; }
-  .intro img { max-height: 100px; }
+  /* Do not cap MY GALLERY NFT thumbnails (they live inside .intro and use a 1:1 frame) */
+  .intro img:not(#walletNFTsGrid img) { max-height: 100px; }
   .intro h3 { font-size: 1.1rem; padding: 0 1rem; }
 
   .logo-img { max-height: 120px; }
@@ -342,7 +353,7 @@ body.theme-modern #disconnectWalletBtn:hover {
 }
 
 @media (max-width: 576px) {
-  .intro img { max-height: 100px; }
+  .intro img:not(#walletNFTsGrid img) { max-height: 100px; }
   .intro h3 { font-size: 1rem; }
 
   .hipeless-sub, h5.text-uppercase { font-size: clamp(0.9rem, 2vw, 1.4rem); }
@@ -351,6 +362,43 @@ body.theme-modern #disconnectWalletBtn:hover {
   #navbarSupportedContent .nav-icon img { height: 16px; }
 
   .mindfolk-logo { max-height: 25px; }
+}
+
+/* Navbar (collapsed): theme row, then wallet row — avoids one cramped line on small widths */
+@media (max-width: 991.98px) {
+  .navbar-expand-lg .navbar-collapse:not(.show) {
+    display: none !important;
+  }
+  .navbar-expand-lg .navbar-collapse.show {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+  }
+  .navbar-collapse-content .navbar-theme-strip {
+    width: 100%;
+  }
+  .navbar-collapse-content .navbar-wallet-strip {
+    width: 100%;
+    padding-top: 0.35rem;
+    margin-top: 0.1rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+  }
+  body.theme-classic .navbar-collapse-content .navbar-wallet-strip {
+    border-top-color: rgba(10, 62, 84, 0.15);
+  }
+}
+
+@media (max-width: 380px) {
+  .navbar-collapse-content .theme-switcher .btn {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.72rem;
+  }
+  .navbar-collapse-content .wallet-indicator-name {
+    max-width: 76px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 
