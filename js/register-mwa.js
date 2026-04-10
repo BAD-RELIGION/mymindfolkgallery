@@ -4,12 +4,15 @@
  * https://docs.solanamobile.com/developers/mobile-wallet-adapter
  */
 try {
+  const { SOLANA_MAINNET_CHAIN } = await import('https://esm.sh/@solana/wallet-standard-chains@1.1.1');
   const {
     createDefaultAuthorizationCache,
     createDefaultChainSelector,
     createDefaultWalletNotFoundHandler,
     registerMwa,
-  } = await import('https://esm.sh/@solana-mobile/wallet-standard-mobile@2.1.0');
+  } = await import(
+    'https://esm.sh/@solana-mobile/wallet-standard-mobile@0.5.1?deps=@solana-mobile/mobile-wallet-adapter-protocol@2.2.7'
+  );
 
   registerMwa({
     appIdentity: {
@@ -20,7 +23,7 @@ try {
         : 'https://my.mindfolk.xyz/img/mf_dc_icon.png',
     },
     authorizationCache: createDefaultAuthorizationCache(),
-    chains: ['solana:mainnet'],
+    chains: [SOLANA_MAINNET_CHAIN],
     chainSelector: createDefaultChainSelector(),
     onWalletNotFound: createDefaultWalletNotFoundHandler(),
   });

@@ -584,10 +584,10 @@ let WALLET_STATE = {
       WALLET_STATE.connecting = true;
       try {
         const mobileMod = await import(
-          'https://esm.sh/@solana-mobile/wallet-adapter-mobile@2.1.4?deps=@solana/web3.js@1.95.8,@solana/wallet-adapter-base@0.9.23'
+          'https://esm.sh/@solana-mobile/wallet-adapter-mobile@2.2.7?deps=@solana/web3.js@1.98.4,@solana/wallet-adapter-base@0.9.27,@solana-mobile/mobile-wallet-adapter-protocol@2.2.7,@solana-mobile/mobile-wallet-adapter-protocol-web3js@2.2.7'
         );
         const baseMod = await import(
-          'https://esm.sh/@solana/wallet-adapter-base@0.9.23?deps=@solana/web3.js@1.95.8'
+          'https://esm.sh/@solana/wallet-adapter-base@0.9.27?deps=@solana/web3.js@1.98.4'
         );
 
         const Adapter = mobileMod.SolanaMobileWalletAdapter || mobileMod.default;
