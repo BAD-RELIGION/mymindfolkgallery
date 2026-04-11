@@ -583,6 +583,15 @@ let WALLET_STATE = {
       return mwaErrorChainCode(err.cause, d + 1);
     }
 
+    function mwaDebugIngestAllowed() {
+      try {
+        const h = window.location.hostname;
+        return h === 'localhost' || h === '127.0.0.1';
+      } catch (_) {
+        return false;
+      }
+    }
+
     function mwaDebugLog(hypothesisId, location, message, data) {
       // #region agent log
       const payload = {
@@ -594,11 +603,13 @@ let WALLET_STATE = {
         data,
         timestamp: Date.now(),
       };
-      fetch('http://127.0.0.1:7298/ingest/0d1fc4de-d6a1-465b-9140-ab41e5bc7369', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c9ac66' },
-        body: JSON.stringify(payload),
-      }).catch(() => {});
+      if (mwaDebugIngestAllowed()) {
+        fetch('http://127.0.0.1:7298/ingest/0d1fc4de-d6a1-465b-9140-ab41e5bc7369', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c9ac66' },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      }
       try {
         console.info('[MWA-DEBUG]', JSON.stringify(payload));
         const key = '__mwa_debug_log';
