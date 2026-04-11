@@ -612,8 +612,44 @@ let WALLET_STATE = {
           onWalletNotFound: createDefaultWalletNotFoundHandler(),
         });
 
-        await adapter.connect();
-        const pk = adapter.publicKey;
+        // wallet-adapter-mobile 2.2.x: connect() can resolve before Wallet Standard
+        // publishes accounts; publicKey is set in a follow-up 'connect' emit. Wait for it.
+        const pk = await new Promise((resolve, reject) => {
+          const timeoutMs = 120000;
+          let timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('Timed out waiting for wallet public key'));
+          }, timeoutMs);
+          function cleanup() {
+            clearTimeout(timer);
+            timer = null;
+            if (typeof adapter.off === 'function') adapter.off('connect', onConnect);
+            else if (typeof adapter.removeListener === 'function') adapter.removeListener('connect', onConnect);
+          }
+          function onConnect() {
+            const key = adapter.publicKey;
+            if (key) {
+              cleanup();
+              resolve(key);
+            }
+          }
+          if (typeof adapter.on === 'function') adapter.on('connect', onConnect);
+
+          (async () => {
+            try {
+              await adapter.connect();
+              if (adapter.publicKey) {
+                cleanup();
+                resolve(adapter.publicKey);
+                return;
+              }
+            } catch (err) {
+              cleanup();
+              reject(err);
+            }
+          })();
+        });
+
         if (!pk) throw new Error('Wallet did not provide a public key.');
         WALLET_STATE.wallet = new web3.PublicKey(pk.toString());
         WALLET_STATE.provider = adapter;
