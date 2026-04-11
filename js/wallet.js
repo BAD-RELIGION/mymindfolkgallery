@@ -583,6 +583,12 @@ let WALLET_STATE = {
       return mwaErrorChainCode(err.cause, d + 1);
     }
 
+    function mwaDebugLog(hypothesisId, location, message, data) {
+      // #region agent log
+      fetch('http://127.0.0.1:7298/ingest/0d1fc4de-d6a1-465b-9140-ab41e5bc7369',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c9ac66'},body:JSON.stringify({sessionId:'c9ac66',runId:'wallet-mwa-before-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    }
+
     function mwaConnectFailureMessage(err) {
       const msg = String(err?.message || '');
       const code = mwaErrorChainCode(err);
@@ -627,6 +633,11 @@ let WALLET_STATE = {
     async function connectSolanaMobileWithAdapter() {
       if (WALLET_STATE.wallet || WALLET_STATE.connecting) return;
       WALLET_STATE.connecting = true;
+      mwaDebugLog('H1', 'wallet.js:connectSolanaMobileWithAdapter:entry', 'MWA connect entry', {
+        currentWalletName: WALLET_STATE.currentWalletName,
+        alreadyConnected: Boolean(WALLET_STATE.connected),
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '(n/a)',
+      });
       try {
         const mobileMod = await import(
           'https://esm.sh/@solana-mobile/wallet-adapter-mobile@2.2.7?deps=@solana/web3.js@1.98.4,@solana/wallet-adapter-base@0.9.27,@solana-mobile/mobile-wallet-adapter-protocol@2.2.7,@solana-mobile/mobile-wallet-adapter-protocol-web3js@2.2.7'
@@ -654,8 +665,15 @@ let WALLET_STATE = {
           authorizationResultCache: createDefaultAuthorizationResultCache(),
           cluster: WalletAdapterNetwork.Mainnet,
           onWalletNotFound: async () => {
+            mwaDebugLog('H2', 'wallet.js:connectSolanaMobileWithAdapter:onWalletNotFound', 'Adapter reported wallet not found', {
+              userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '(n/a)',
+            });
             console.warn('[MWA] onWalletNotFound (no responding wallet). UA:', navigator.userAgent);
           },
+        });
+        mwaDebugLog('H1', 'wallet.js:connectSolanaMobileWithAdapter:adapter-created', 'Adapter created', {
+          hasOn: typeof adapter.on === 'function',
+          hasConnect: typeof adapter.connect === 'function',
         });
 
         // wallet-adapter-mobile 2.2.x: connect() can resolve before Wallet Standard
@@ -674,6 +692,9 @@ let WALLET_STATE = {
           }
           function onConnect() {
             const key = adapter.publicKey;
+            mwaDebugLog('H3', 'wallet.js:connectSolanaMobileWithAdapter:onConnect-event', 'Adapter connect event fired', {
+              hasPublicKey: Boolean(key),
+            });
             if (key) {
               cleanup();
               resolve(key);
@@ -683,7 +704,16 @@ let WALLET_STATE = {
 
           (async () => {
             try {
+              mwaDebugLog('H3', 'wallet.js:connectSolanaMobileWithAdapter:before-adapter-connect', 'Calling adapter.connect()', {
+                connecting: Boolean(adapter.connecting),
+                connected: Boolean(adapter.connected),
+              });
               await adapter.connect();
+              mwaDebugLog('H3', 'wallet.js:connectSolanaMobileWithAdapter:after-adapter-connect', 'adapter.connect() resolved', {
+                connecting: Boolean(adapter.connecting),
+                connected: Boolean(adapter.connected),
+                hasPublicKey: Boolean(adapter.publicKey),
+              });
               if (adapter.publicKey) {
                 cleanup();
                 resolve(adapter.publicKey);
@@ -699,6 +729,10 @@ let WALLET_STATE = {
         if (!pk) throw new Error('Wallet did not provide a public key.');
         WALLET_STATE.wallet = new web3.PublicKey(pk.toString());
         WALLET_STATE.provider = adapter;
+        mwaDebugLog('H4', 'wallet.js:connectSolanaMobileWithAdapter:publicKey-ready', 'Public key resolved', {
+          walletSet: Boolean(WALLET_STATE.wallet),
+          providerSet: Boolean(WALLET_STATE.provider),
+        });
         WALLET_STATE.listenersBound = false;
         if (typeof adapter.on === 'function') {
           bindProviderEvents();
@@ -714,6 +748,12 @@ let WALLET_STATE = {
         console.log('Solana Mobile Adapter connected.');
         window.dispatchEvent(new CustomEvent('walletConnected'));
       } catch (err) {
+        mwaDebugLog('H5', 'wallet.js:connectSolanaMobileWithAdapter:catch', 'MWA connect failed', {
+          name: err?.name,
+          code: err?.code,
+          message: err?.message,
+          chainCode: mwaErrorChainCode(err),
+        });
         if (err?.code === 4001) {
           alert('Wallet connection cancelled.');
         } else {
@@ -725,6 +765,11 @@ let WALLET_STATE = {
       } finally {
         WALLET_STATE.connecting = false;
         updateWalletUI();
+        mwaDebugLog('H4', 'wallet.js:connectSolanaMobileWithAdapter:finally', 'MWA connect flow finished', {
+          connectingFlag: Boolean(WALLET_STATE.connecting),
+          connectedFlag: Boolean(WALLET_STATE.connected),
+          hasWallet: Boolean(WALLET_STATE.wallet),
+        });
       }
     }
 
