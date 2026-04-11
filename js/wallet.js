@@ -694,8 +694,6 @@ let WALLET_STATE = {
           appIdentity: {
             name: 'Mindfolk Collection Gallery',
             uri: window.location.origin,
-            // MWA 2.2.x: icon must be a relative URI (path), not https://... absolute URL.
-            icon: '/img/mf_dc_icon.png',
           },
           authorizationResultCache: createDefaultAuthorizationResultCache(),
           cluster: WalletAdapterNetwork.Mainnet,
