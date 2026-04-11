@@ -585,7 +585,30 @@ let WALLET_STATE = {
 
     function mwaDebugLog(hypothesisId, location, message, data) {
       // #region agent log
-      fetch('http://127.0.0.1:7298/ingest/0d1fc4de-d6a1-465b-9140-ab41e5bc7369',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c9ac66'},body:JSON.stringify({sessionId:'c9ac66',runId:'wallet-mwa-before-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+      const payload = {
+        sessionId: 'c9ac66',
+        runId: 'wallet-mwa-before-fix',
+        hypothesisId,
+        location,
+        message,
+        data,
+        timestamp: Date.now(),
+      };
+      fetch('http://127.0.0.1:7298/ingest/0d1fc4de-d6a1-465b-9140-ab41e5bc7369', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c9ac66' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+      try {
+        console.info('[MWA-DEBUG]', JSON.stringify(payload));
+        const key = '__mwa_debug_log';
+        const prev = JSON.parse(sessionStorage.getItem(key) || '[]');
+        prev.push(payload);
+        while (prev.length > 80) prev.shift();
+        sessionStorage.setItem(key, JSON.stringify(prev));
+      } catch (_) {
+        /* ignore */
+      }
       // #endregion
     }
 
@@ -942,6 +965,15 @@ let WALLET_STATE = {
     
     // Also expose wallet state globally for gallery.js
     window.WALLET_STATE = WALLET_STATE;
+
+    /** Mobile-safe MWA debug ring (see console [MWA-DEBUG] lines too). */
+    window.dumpMWADebugLog = function () {
+      try {
+        return sessionStorage.getItem('__mwa_debug_log') || '[]';
+      } catch (_) {
+        return '[]';
+      }
+    };
     
     // Expose functions for token balance
     window.refreshTokenBalance = refreshTokenBalance;
