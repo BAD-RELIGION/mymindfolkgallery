@@ -575,6 +575,51 @@ let WALLET_STATE = {
       WALLET_STATE.listenersBound = true;
     }
 
+    function mwaErrorChainCode(err, depth) {
+      const d = depth || 0;
+      if (!err || d > 6) return '';
+      const c = err.code;
+      if (typeof c === 'string' && c.startsWith('ERROR_')) return c;
+      return mwaErrorChainCode(err.cause, d + 1);
+    }
+
+    function mwaConnectFailureMessage(err) {
+      const msg = String(err?.message || '');
+      const code = mwaErrorChainCode(err);
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+      const looksWebView = /\bwv\b|; wv\)/i.test(ua);
+
+      if (code === 'ERROR_WALLET_NOT_FOUND' || /ERROR_WALLET_NOT_FOUND|wallet not found/i.test(msg)) {
+        return (
+          'Mobile Wallet Adapter could not open a wallet on this device. Open this site in Chrome (not an in-app browser), stay on HTTPS, and allow Local network access for Chrome if Android asks. Install a Solana wallet with MWA support (e.g. Phantom or Solflare). On Solana Seeker, try the Chrome app if the built-in browser fails.'
+        );
+      }
+      if (code === 'ERROR_BROWSER_NOT_SUPPORTED' || looksWebView) {
+        return (
+          'This browser cannot use Mobile Wallet Adapter (MWA often fails inside embedded WebViews). Open the same URL in Chrome or another supported Android browser.'
+        );
+      }
+      if (code === 'ERROR_LOOPBACK_ACCESS_BLOCKED' || /loopback|local network/i.test(msg)) {
+        return (
+          'Chrome blocked the local connection to your wallet. In Android Settings, check Chrome permissions (Local network / Nearby devices), then try again.'
+        );
+      }
+      if (/timed out|timeout/i.test(msg)) {
+        return (
+          'Wallet connection timed out. If a wallet sheet appeared, approve it; otherwise open this page in Chrome with a compatible Solana wallet installed.'
+        );
+      }
+      if (/public key/i.test(msg)) {
+        return (
+          'The wallet connected without exposing an account. Close the wallet app and try again in Chrome, or pick another MWA-compatible wallet.'
+        );
+      }
+      return (
+        msg ||
+        'Solana Mobile Adapter connection failed. Use Chrome on Android with a compatible wallet. iOS Safari does not support MWA yet.'
+      );
+    }
+
     /**
      * Connect via Mobile Wallet Adapter (MWA) — Android Chrome, Solana Seeker browser, etc.
      * @see https://docs.solanamobile.com/developers/mobile-wallet-adapter
@@ -593,7 +638,6 @@ let WALLET_STATE = {
         const Adapter = mobileMod.SolanaMobileWalletAdapter || mobileMod.default;
         const createDefaultAddressSelector = mobileMod.createDefaultAddressSelector;
         const createDefaultAuthorizationResultCache = mobileMod.createDefaultAuthorizationResultCache;
-        const createDefaultWalletNotFoundHandler = mobileMod.createDefaultWalletNotFoundHandler;
         const { WalletAdapterNetwork } = baseMod;
 
         if (!Adapter || typeof Adapter !== 'function' || !createDefaultAddressSelector) {
@@ -609,7 +653,9 @@ let WALLET_STATE = {
           },
           authorizationResultCache: createDefaultAuthorizationResultCache(),
           cluster: WalletAdapterNetwork.Mainnet,
-          onWalletNotFound: createDefaultWalletNotFoundHandler(),
+          onWalletNotFound: async () => {
+            console.warn('[MWA] onWalletNotFound (no responding wallet). UA:', navigator.userAgent);
+          },
         });
 
         // wallet-adapter-mobile 2.2.x: connect() can resolve before Wallet Standard
@@ -672,10 +718,7 @@ let WALLET_STATE = {
           alert('Wallet connection cancelled.');
         } else {
           console.error('Solana Mobile Adapter connect error', err);
-          alert(
-            err?.message ||
-              'Solana Mobile Adapter connection failed. Use Chrome on Android (or your device browser), install a compatible wallet, and try again. iOS Safari does not support MWA yet.'
-          );
+          alert(mwaConnectFailureMessage(err));
         }
         WALLET_STATE.provider = null;
         WALLET_STATE.currentWalletName = null;

@@ -8,11 +8,18 @@ try {
   const {
     createDefaultAuthorizationCache,
     createDefaultChainSelector,
-    createDefaultWalletNotFoundHandler,
     registerMwa,
   } = await import(
     'https://esm.sh/@solana-mobile/wallet-standard-mobile@0.5.1?deps=@solana-mobile/mobile-wallet-adapter-protocol@2.2.7'
   );
+
+  /** Avoid default embedded modal; wallet.js shows one consolidated alert on connect failure. */
+  async function onWalletNotFoundLogOnly() {
+    console.warn(
+      '[MWA registerMwa] No wallet responded (wallet not found). UA:',
+      typeof navigator !== 'undefined' ? navigator.userAgent : '(n/a)'
+    );
+  }
 
   registerMwa({
     appIdentity: {
@@ -25,7 +32,7 @@ try {
     authorizationCache: createDefaultAuthorizationCache(),
     chains: [SOLANA_MAINNET_CHAIN],
     chainSelector: createDefaultChainSelector(),
-    onWalletNotFound: createDefaultWalletNotFoundHandler(),
+    onWalletNotFound: onWalletNotFoundLogOnly,
   });
   console.log('✓ Solana Mobile Wallet Standard (MWA) registered for compatible Android browsers');
 } catch (e) {
