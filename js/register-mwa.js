@@ -72,9 +72,8 @@ try {
     appIdentity: {
       name: 'Mindfolk Collection Gallery',
       uri: typeof window !== 'undefined' ? window.location.origin : 'https://my.mindfolk.xyz',
-      icon: typeof window !== 'undefined'
-        ? new URL('img/mf_dc_icon.png', window.location.origin).href
-        : 'https://my.mindfolk.xyz/img/mf_dc_icon.png',
+      // Same rule as wallet-adapter-mobile: relative path only, not absolute URL.
+      icon: '/img/mf_dc_icon.png',
     },
     authorizationCache: createDefaultAuthorizationCache(),
     chains: [SOLANA_MAINNET_CHAIN],
