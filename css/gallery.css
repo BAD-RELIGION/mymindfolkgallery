@@ -8,8 +8,9 @@
   min-height: 50vh;
 }
 
-/* Mindfolk collection (#galleryGrid): fixed tile sizes — 6 vs 12 is density, not “% of viewport” */
-#galleryGrid.gallery-mosaic {
+/* Mindfolk collection (#galleryGrid) + MY GALLERY (#walletNFTsGrid): fixed tile sizes */
+#galleryGrid.gallery-mosaic,
+#walletNFTsGrid.gallery-mosaic {
   display: grid;
   width: 100%;
   gap: 1rem;
@@ -24,27 +25,31 @@
   --mosaic-cell: 118px;
 }
 
-#galleryGrid.gallery-mosaic > .gallery-mosaic-cell {
+#galleryGrid.gallery-mosaic > .gallery-mosaic-cell,
+#walletNFTsGrid.gallery-mosaic > .gallery-mosaic-cell {
   width: min(100%, var(--mosaic-cell));
   max-width: var(--mosaic-cell);
   min-width: 0;
   justify-self: center;
 }
 
-#galleryGrid.gallery-mosaic .nft-card {
+#galleryGrid.gallery-mosaic .nft-card,
+#walletNFTsGrid.gallery-mosaic .nft-card {
   width: 100%;
   max-width: 100%;
   min-width: 0;
 }
 
-#galleryGrid.gallery-mosaic > .gallery-mosaic-span-full {
+#galleryGrid.gallery-mosaic > .gallery-mosaic-span-full,
+#walletNFTsGrid.gallery-mosaic > .gallery-mosaic-span-full {
   grid-column: 1 / -1;
   width: 100%;
   max-width: 100%;
 }
 
 @media (max-width: 420px) {
-  #galleryGrid.gallery-mosaic.gallery-view-6col {
+  #galleryGrid.gallery-mosaic.gallery-view-6col,
+  #walletNFTsGrid.gallery-mosaic.gallery-view-6col {
     --mosaic-cell: 168px;
   }
   #galleryGrid.gallery-mosaic.gallery-view-12col {
@@ -123,23 +128,15 @@
 }
 
 /* Avoid Bootstrap row stretch equalizing column height (was stretching card chrome oddly on narrow layouts) */
-#walletNFTsGrid.row,
 #galleryGrid.row:not(.gallery-view-list) {
   align-items: flex-start;
 }
 
-/* Wallet NFT cards: never apply main-gallery 12-col "tiny card" sizing (descendant selectors) */
+/* Wallet NFT cards: match main gallery mosaic sizing (not Bootstrap row columns) */
 #walletNFTsGrid .nft-card {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-}
-
-#walletNFTsGrid .nft-card-name {
-  font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 #walletNFTsGrid .nft-card-mint {

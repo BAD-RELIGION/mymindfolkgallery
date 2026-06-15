@@ -378,24 +378,13 @@ body.theme-classic .nft-card-name {
   text-overflow: ellipsis !important; /* Same as MODERN */
 }
 
-/* 6 Col View - Even smaller name */
-body.theme-classic .gallery-view-6col .nft-card-name {
-  font-size: 0.75rem !important; /* Even smaller than 0.85rem */
+/* 6 Col View - Even smaller name (main gallery + MY GALLERY wallet grid) */
+body.theme-classic .gallery-view-6col .nft-card-name,
+body.theme-classic #walletNFTsGrid.gallery-view-6col .nft-card-name {
+  font-size: 0.75rem !important;
 }
 
-/* MY GALLERY (Wallet Gallery) — readable names; never use 12-col tiny/wrap rules */
-body.theme-classic #walletNFTsGrid .nft-card-name {
-  font-size: 0.85rem !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  display: block !important;
-  -webkit-line-clamp: unset !important;
-  line-clamp: unset !important;
-  min-height: unset !important;
-}
-
-/* 12 Col View - Much smaller name and type */
+/* MY GALLERY: same name rules as main 6-col — do not use a larger wallet-only font */
 body.theme-classic .gallery-view-12col .nft-card-name {
   font-size: calc(0.65rem - 1px) !important; /* 1px smaller */
   white-space: normal !important; /* Allow wrapping */

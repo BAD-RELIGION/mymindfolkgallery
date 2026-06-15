@@ -1226,9 +1226,9 @@ function updateCardImagesForView(view) {
 function createNFTCard(nft, isMainGallery = true) {
   const col = document.createElement('div');
   
-  // MY GALLERY (connected / pasted wallet): same 6-column density as main gallery default view
+  // MY GALLERY (connected / pasted wallet): same mosaic tiles as main gallery 6-col view
   if (!isMainGallery) {
-    col.className = 'col-6 col-md-4 col-lg-3 col-xl-2';
+    col.className = 'gallery-mosaic-cell';
   } else if (mainGalleryView === 'list') {
     col.className = 'col-12 col-md-4 nft-card-list-item';
   } else {
@@ -2304,7 +2304,7 @@ function displayWalletNFTs(nfts, options) {
 
   if (!nfts || nfts.length === 0) {
     if (viewingAddress && emptyMessage) {
-      walletNFTsGrid.innerHTML = '<div class="col-12 text-center text-muted py-4">' + emptyMessage + '</div>';
+      walletNFTsGrid.innerHTML = '<div class="gallery-mosaic-span-full text-center text-muted py-4">' + emptyMessage + '</div>';
       walletNFTsDisplay.style.display = 'block';
     } else {
       walletNFTsDisplay.style.display = 'none';
